@@ -103,9 +103,9 @@ int main() {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		/*----------TEXTURE------------*/
-		unsigned int cubeTexture;
-		glGenTextures(1, &cubeTexture);
-		glBindTexture(GL_TEXTURE_2D, cubeTexture);
+		unsigned int texture_diffuse;
+		glGenTextures(1, &texture_diffuse);
+		glBindTexture(GL_TEXTURE_2D, texture_diffuse);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -116,29 +116,41 @@ int main() {
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		}
 		else {
-			std::cout << "Failed to load texture" << std::endl;
+			std::cout << "Failed to load texture_diffuse" << std::endl;
 		}
 		stbi_image_free(data); 
-		glActiveTexture(GL_TEXTURE0);
+
+		unsigned int texture_specular;
+		glGenTextures(1, &texture_specular);
+		glBindTexture(GL_TEXTURE_2D, texture_specular);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		data = stbi_load("container2_specular.png", &width, &height, &nrChannels, 0);
+		if (data) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		else {
+			std::cout << "Failed to load texture_specular" << std::endl;
+		}
 
 		/*----------SHADER------------*/
 		Shader shader("3.3.shader.vert", "3.3.shader.frag");
 		Shader lightShader("3.3.shader.vert", "3.3.lightShader.frag");
 
 		// Material
-		//glm::vec3 light_ambient(.2f, .2f, .2f);
-		//glm::vec3 light_diffuse(.5f, .5f, .5f);
-		//glm::vec3 light_specular(1.f, 1.f, 1.f);
-		glm::vec3 light_ambient(1.f);
-		glm::vec3 light_diffuse(1.f);
-		glm::vec3 light_specular(1.f);
-		//glm::vec3 material_ambient(.2f, .2f, .2f);
-		//glm::vec3 material_diffuse(.6f, .6f, .6f);
-		//glm::vec3 material_specular(.2f, .2f, .2f);
-		glm::vec3 material_ambient(0.24725,	0.1995,	0.0745);
-		glm::vec3 material_diffuse(0.75164,	0.60648,0.22648);
-		glm::vec3 material_specular(0.628281,0.555802,0.366065);
-		float material_shininess = 25.f;
+		glm::vec3 light_ambient(.2f, .2f, .2f);
+		glm::vec3 light_diffuse(.5f, .5f, .5f);
+		glm::vec3 light_specular(1.f, 1.f, 1.f);
+		//glm::vec3 light_ambient(1.f);
+		//glm::vec3 light_diffuse(1.f);
+		//glm::vec3 light_specular(1.f);
+		glm::vec3 material_specular(.5f, .5f, .5f);
+		//glm::vec3 material_ambient(0.24725,	0.1995,	0.0745);
+		//glm::vec3 material_diffuse(0.75164,	0.60648,0.22648);
+		//glm::vec3 material_specular(0.628281,0.555802,0.366065);
+		float material_shininess = 64.f;
 		
 
 		/*----------RENDER LOOP------------*/ 
@@ -182,12 +194,12 @@ int main() {
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::Begin("Menu");
-				glm::vec3* input_value[] = {&lightPos, &light_ambient, &light_diffuse, &light_specular, &material_ambient, &material_diffuse, &material_specular};
-				const char* input_value_name[] = { "light.position", "light.ambient", "light.diffuse", "light.specular", "material.ambient", "material.diffuse", "material.specular" };
+				glm::vec3* input_value[] = { &lightPos, &light_ambient, &light_diffuse, &light_specular };
+				const char* input_value_name[] = { "light.position", "light.ambient", "light.diffuse", "light.specular",};
 				float vec3f[3];
 				glm::vec3 temp(0.f);
 				
-				for (int i = 0; i < 7; i++) {
+				for (int i = 0; i < 4; i++) {
 					vec3f[0] = input_value[i]->x, vec3f[1] = input_value[i]->y, vec3f[2] = input_value[i]->z;
 					ImGui::InputFloat3(input_value_name[i], vec3f);
 					input_value[i]->x = vec3f[0], input_value[i]->y = vec3f[1], input_value[i]->z = vec3f[2];
@@ -218,27 +230,30 @@ int main() {
 			shader.setMat4f("model", 1, glm::value_ptr(model_obj));
 			shader.setMat4f("projection", 1, glm::value_ptr(projection));
 			shader.setMat4f("nrmMat", 1, glm::value_ptr(nrmMat));
+			shader.setMat4f("view", 1, glm::value_ptr(view));
+			shader.setVec3f("viewPos", camera.position);
 			shader.setVec3f("light.position", lightPos);
 			shader.setVec3f("light.ambient", light_ambient);
 			shader.setVec3f("light.diffuse", light_diffuse);
 			shader.setVec3f("light.specular", light_specular);
-			shader.setVec3f("material.ambient", material_ambient);
-			shader.setVec3f("material.diffuse", material_diffuse);
-			shader.setVec3f("material.specular", material_specular);
+			shader.setInt("material.diffuse", 0);
+			shader.setInt("material.specular", 1);
 			shader.setFloat("material.shininess", material_shininess);
 			lightShader.use();
 			lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
 			lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
+			lightShader.setMat4f("view", 1, glm::value_ptr(view));
 
 			// draw
 			shader.use();
-			shader.setMat4f("view", 1, glm::value_ptr(view));
-			shader.setVec3f("viewPos", camera.position);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture_diffuse);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, texture_specular);
 			glBindVertexArray(VAO);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 
 			lightShader.use();
-			lightShader.setMat4f("view", 1, glm::value_ptr(view));
 			glBindVertexArray(lightVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 
