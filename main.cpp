@@ -18,6 +18,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double XposIn, double YposIn);
 void prossessInput(GLFWwindow* window);
 void cameraLock_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void loadTexture(unsigned* texture, const char* texture_file_name, GLint internalformat);
 
 // config
 const unsigned int SCR_WIDTH = 1600;
@@ -103,37 +104,18 @@ int main() {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		/*----------TEXTURE------------*/
+		// diffuse
 		unsigned int texture_diffuse;
-		glGenTextures(1, &texture_diffuse);
-		glBindTexture(GL_TEXTURE_2D, texture_diffuse);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		int width, height, nrChannels;
-		unsigned char* data = stbi_load("container2.png", &width, &height, &nrChannels, 0);
-		if (data) { 
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		}
-		else {
-			std::cout << "Failed to load texture_diffuse" << std::endl;
-		}
-		stbi_image_free(data); 
+		loadTexture(&texture_diffuse, "container2.png", GL_RGBA);
 
+		// specular
 		unsigned int texture_specular;
-		glGenTextures(1, &texture_specular);
-		glBindTexture(GL_TEXTURE_2D, texture_specular);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		data = stbi_load("container2_specular.png", &width, &height, &nrChannels, 0);
-		if (data) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		}
-		else {
-			std::cout << "Failed to load texture_specular" << std::endl;
-		}
+		loadTexture(&texture_specular, "container2_specular.png", GL_RGBA);
+
+		// emission
+		unsigned int texture_emission;
+		loadTexture(&texture_emission, "matrix.jpg", GL_RGB);
+
 
 		/*----------SHADER------------*/
 		Shader shader("3.3.shader.vert", "3.3.shader.frag");
@@ -150,6 +132,7 @@ int main() {
 		//glm::vec3 material_ambient(0.24725,	0.1995,	0.0745);
 		//glm::vec3 material_diffuse(0.75164,	0.60648,0.22648);
 		//glm::vec3 material_specular(0.628281,0.555802,0.366065);
+		float emissionStrength = 1.f;
 		float material_shininess = 64.f;
 		
 
@@ -207,6 +190,8 @@ int main() {
 				}
 				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 256.f);
 				ImGui::Separator();
+				ImGui::SliderFloat("emissionStrength", &emissionStrength, 0.f, 1.f);
+				ImGui::Separator();
 				ImGui::Text("camera.position: %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
 				ImGui::Separator();
 				ImGui::Text("camera.front: %.2f %.2f %.2f", camera.front.x, camera.front.y, camera.front.z);
@@ -238,7 +223,10 @@ int main() {
 			shader.setVec3f("light.specular", light_specular);
 			shader.setInt("material.diffuse", 0);
 			shader.setInt("material.specular", 1);
+			shader.setInt("material.emission", 2);
+			shader.setFloat("material.emissionStrength", emissionStrength);
 			shader.setFloat("material.shininess", material_shininess);
+			shader.setFloat("offset", (float)curTime);	// let emissionMap moving by time
 			lightShader.use();
 			lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
 			lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
@@ -250,6 +238,8 @@ int main() {
 			glBindTexture(GL_TEXTURE_2D, texture_diffuse);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture_specular);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, texture_emission);
 			glBindVertexArray(VAO);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -274,6 +264,25 @@ int main() {
 		glfwTerminate();
 	}
 	return 0;
+}
+
+void loadTexture(unsigned* texture, const char* texture_file_name, GLint internalformat) {
+	glGenTextures(1, texture);
+	glBindTexture(GL_TEXTURE_2D, *texture);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load(texture_file_name, &width, &height, &nrChannels, 0);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, internalformat, width, height, 0, internalformat, GL_UNSIGNED_BYTE, data);
+	}
+	else {
+		std::cout << "Failed to load texture " << texture_file_name << std::endl;
+	}
+	stbi_image_free(data);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
