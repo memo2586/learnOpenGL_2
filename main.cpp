@@ -106,15 +106,11 @@ int main() {
 		/*----------TEXTURE------------*/
 		// diffuse
 		unsigned int texture_diffuse;
-		loadTexture(&texture_diffuse, "container2.png", GL_RGBA);
+		loadTexture(&texture_diffuse, "container2_anime.png", GL_RGBA);
 
 		// specular
 		unsigned int texture_specular;
 		loadTexture(&texture_specular, "container2_specular.png", GL_RGBA);
-
-		// emission
-		unsigned int texture_emission;
-		loadTexture(&texture_emission, "matrix.jpg", GL_RGB);
 
 
 		/*----------SHADER------------*/
@@ -125,15 +121,8 @@ int main() {
 		glm::vec3 light_ambient(.2f, .2f, .2f);
 		glm::vec3 light_diffuse(.5f, .5f, .5f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
-		//glm::vec3 light_ambient(1.f);
-		//glm::vec3 light_diffuse(1.f);
-		//glm::vec3 light_specular(1.f);
-		glm::vec3 material_specular(.5f, .5f, .5f);
-		//glm::vec3 material_ambient(0.24725,	0.1995,	0.0745);
-		//glm::vec3 material_diffuse(0.75164,	0.60648,0.22648);
-		//glm::vec3 material_specular(0.628281,0.555802,0.366065);
-		float emissionStrength = 1.f;
-		float material_shininess = 64.f;
+
+		float material_shininess = 50.f;
 		
 
 		/*----------RENDER LOOP------------*/ 
@@ -154,10 +143,10 @@ int main() {
 
 			// transform
 			glm::mat4 model_light = glm::mat4(1.f);
-			if(light_lock){
-				lightPos.x = sin(curTime) * 1.4f;
-				lightPos.y = cos(curTime) * 1.4f;
-				lightPos.z = sin(curTime) * 1.4f;
+			if(!light_lock){
+				lightPos.x = sin(curTime) * 2.f;
+				lightPos.y = cos(curTime) * 2.f;
+				lightPos.z = sin(curTime) * 2.f;
 			}
 			model_light = glm::translate(model_light, lightPos);
 			model_light = glm::scale(model_light, glm::vec3(.2f));
@@ -179,9 +168,7 @@ int main() {
 				ImGui::Begin("Menu");
 				glm::vec3* input_value[] = { &lightPos, &light_ambient, &light_diffuse, &light_specular };
 				const char* input_value_name[] = { "light.position", "light.ambient", "light.diffuse", "light.specular",};
-				float vec3f[3];
-				glm::vec3 temp(0.f);
-				
+				float vec3f[3];			
 				for (int i = 0; i < 4; i++) {
 					vec3f[0] = input_value[i]->x, vec3f[1] = input_value[i]->y, vec3f[2] = input_value[i]->z;
 					ImGui::InputFloat3(input_value_name[i], vec3f);
@@ -189,8 +176,6 @@ int main() {
 					ImGui::Separator();
 				}
 				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 256.f);
-				ImGui::Separator();
-				ImGui::SliderFloat("emissionStrength", &emissionStrength, 0.f, 1.f);
 				ImGui::Separator();
 				ImGui::Text("camera.position: %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
 				ImGui::Separator();
@@ -223,10 +208,7 @@ int main() {
 			shader.setVec3f("light.specular", light_specular);
 			shader.setInt("material.diffuse", 0);
 			shader.setInt("material.specular", 1);
-			shader.setInt("material.emission", 2);
-			shader.setFloat("material.emissionStrength", emissionStrength);
 			shader.setFloat("material.shininess", material_shininess);
-			shader.setFloat("offset", (float)curTime);	// let emissionMap moving by time
 			lightShader.use();
 			lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
 			lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
@@ -238,8 +220,6 @@ int main() {
 			glBindTexture(GL_TEXTURE_2D, texture_diffuse);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture_specular);
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, texture_emission);
 			glBindVertexArray(VAO);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 
