@@ -123,8 +123,8 @@ int main() {
 		glm::vec3 light_diffuse(.5f, .5f, .5f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
 		glm::vec3 light_direction(0.f, -1.f, 0.f);
-		float phi = 12.5f;
-
+		float innerCone_phi = 12.5f;
+		float outerCone_phi = 17.5f;
 		float material_shininess = 50.f;
 		
 
@@ -174,7 +174,9 @@ int main() {
 				}
 				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 128.f);
 				ImGui::Separator();
-				ImGui::SliderFloat("light.constant", &phi, 0.f, 90.f);
+				ImGui::SliderFloat("light.innerCone_phi", &innerCone_phi, 0.f, 90.f);
+				ImGui::Separator();
+				ImGui::SliderFloat("light.outerCone_phi", &outerCone_phi, 0.f, 90.f);
 				ImGui::Separator();
 				ImGui::Text("camera.position: %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
 				ImGui::Separator();
@@ -202,8 +204,9 @@ int main() {
 			shader.setVec3f("light.diffuse", light_diffuse);
 			shader.setVec3f("light.specular", light_specular);
 			shader.setVec3f("light.direction", camera.front);
-			// 传入余弦值方便与点乘结果比较
-			shader.setFloat("light.cutOff", cos(glm::radians(phi)));
+			// 传入余弦值方便与点乘结果比较(内外光锥)
+			shader.setFloat("light.cutOff", cos(glm::radians(innerCone_phi)));
+			shader.setFloat("light.outerCutOff", cos(glm::radians(outerCone_phi)));
 			shader.setInt("material.diffuse", 0);
 			shader.setInt("material.specular", 1);
 			shader.setFloat("material.shininess", material_shininess);
