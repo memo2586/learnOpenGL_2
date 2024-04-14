@@ -7,6 +7,15 @@ struct Material{
 	float shininess;
 };
 
+struct SpotLight{
+	vec3 position;
+	vec3 direction;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+	float cutOff;
+};
+
 struct PointLight{
 	vec3 position;
 	vec3 ambient;
@@ -23,8 +32,7 @@ in vec2 texCoord;
 
 uniform vec3 viewPos;
 uniform Material material;
-//uniform Light light;
-uniform PointLight light;
+uniform SpotLight light;
 
 void main(){
 	// load by texture_diffuse
@@ -35,26 +43,26 @@ void main(){
 	vec3 norm = normalize(normal);
 	vec3 lightDir = normalize(light.position - fragPos);
 
-	// ambient
-	vec3 ambient = diffuse_t * light.ambient;
+	// SpotLight:
+	float theta = dot(lightDir, normalize(-light.direction));
+	if(theta > light.cutOff){
+		// ambient
+		vec3 ambient = diffuse_t * light.ambient;
 
-	// diffuse
-	float diff = max(dot(norm, lightDir), 0.f);
-	vec3 diffuse = (diff * diffuse_t) * light.diffuse;
+		// diffuse
+		float diff = max(dot(norm, lightDir), 0.f);
+		vec3 diffuse = (diff * diffuse_t) * light.diffuse;
 
-	// specular
-	vec3 viewDir = normalize(viewPos - fragPos);
-	vec3 reflectDir = reflect(-lightDir, norm);
-	float spec = pow(max(0.f, dot(viewDir, reflectDir)), material.shininess);
-	vec3 specular = (spec * specular_t) * light.specular;
-
-	// PointLight: distance attenuation
-	float distance = length(light.position - fragPos);
-	float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * distance * distance);
-	ambient *=  attenuation;
-	diffuse *= attenuation;
-	specular *= attenuation;
-
-	vec3 result = ambient + diffuse + specular;
-	fragColor = vec4(result, 1.f);
+		// specular
+		vec3 viewDir = normalize(viewPos - fragPos);
+		vec3 reflectDir = reflect(-lightDir, norm);
+		float spec = pow(max(0.f, dot(viewDir, reflectDir)), material.shininess);
+		vec3 specular = (spec * specular_t) * light.specular;
+	
+		vec3 result = ambient + diffuse + specular;
+		fragColor = vec4(result, 1.f);
+	}
+	else{
+		fragColor = vec4(light.ambient * diffuse_t, 1.f);
+	}
 }

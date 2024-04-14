@@ -25,8 +25,8 @@ const unsigned int SCR_WIDTH = 1600;
 const unsigned int SCR_HEIGHT = 1200;
 
 // camera
-Camera camera(glm::vec3(-6.03f, -.83f, -13.16f));
-// Camera camera(glm::vec3(0.f, 0.f, 0.f));
+// Camera camera(glm::vec3(-6.03f, -.83f, -13.16f));
+Camera camera(glm::vec3(0.f, 0.f, -2.f));
 bool firstMouse = true;
 float lastXpos = SCR_WIDTH / 2.f;
 float lastYpos = SCR_HEIGHT / 2.f;
@@ -122,9 +122,8 @@ int main() {
 		glm::vec3 light_ambient(.05f, .05f, .05f);
 		glm::vec3 light_diffuse(.5f, .5f, .5f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
-		float constant = 1.f;
-		float linear = .022f;
-		float quadratic = .0019f;
+		glm::vec3 light_direction(0.f, -1.f, 0.f);
+		float phi = 12.5f;
 
 		float material_shininess = 50.f;
 		
@@ -164,10 +163,10 @@ int main() {
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::Begin("Menu");
-				glm::vec3* input_value[] = { &lightPos, &light_ambient, &light_diffuse, &light_specular };
-				const char* input_value_name[] = { "light.position", "light.ambient", "light.diffuse", "light.specular",};
+				glm::vec3* input_value[] = { &lightPos, &light_direction, &light_ambient, &light_diffuse, &light_specular };
+				const char* input_value_name[] = { "light.position", "light_direction", "light.ambient", "light.diffuse", "light.specular",};
 				float vec3f[3];
-				for (int i = 0; i < 4; i++) {
+				for (int i = 0; i < 5; i++) {
 					vec3f[0] = input_value[i]->x, vec3f[1] = input_value[i]->y, vec3f[2] = input_value[i]->z;
 					ImGui::InputFloat3(input_value_name[i], vec3f);
 					input_value[i]->x = vec3f[0], input_value[i]->y = vec3f[1], input_value[i]->z = vec3f[2];
@@ -175,11 +174,7 @@ int main() {
 				}
 				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 128.f);
 				ImGui::Separator();
-				ImGui::SliderFloat("light.constant", &constant, 0.f, 1.f);
-				ImGui::Separator();
-				ImGui::SliderFloat("light.linear", &linear, 0.f, 1.f);
-				ImGui::Separator();
-				ImGui::SliderFloat("light.quadratic", &quadratic, 0.f, 1.f);
+				ImGui::SliderFloat("light.constant", &phi, 0.f, 90.f);
 				ImGui::Separator();
 				ImGui::Text("camera.position: %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
 				ImGui::Separator();
@@ -202,13 +197,13 @@ int main() {
 			shader.setMat4f("projection", 1, glm::value_ptr(projection));
 			shader.setMat4f("view", 1, glm::value_ptr(view));
 			shader.setVec3f("viewPos", camera.position);
-			shader.setVec3f("light.position", lightPos);
+			shader.setVec3f("light.position", camera.position);
 			shader.setVec3f("light.ambient", light_ambient);
 			shader.setVec3f("light.diffuse", light_diffuse);
 			shader.setVec3f("light.specular", light_specular);
-			shader.setFloat("light.constant", constant);
-			shader.setFloat("light.linear", linear);
-			shader.setFloat("light.quadratic", quadratic);
+			shader.setVec3f("light.direction", camera.front);
+			// 传入余弦值方便与点乘结果比较
+			shader.setFloat("light.cutOff", cos(glm::radians(phi)));
 			shader.setInt("material.diffuse", 0);
 			shader.setInt("material.specular", 1);
 			shader.setFloat("material.shininess", material_shininess);
