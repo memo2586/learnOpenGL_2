@@ -106,7 +106,7 @@ int main() {
 		/*----------TEXTURE------------*/
 		// diffuse
 		unsigned int texture_diffuse;
-		loadTexture(&texture_diffuse, "container2_anime.png", GL_RGBA);
+		loadTexture(&texture_diffuse, "container2.png", GL_RGBA);
 
 		// specular
 		unsigned int texture_specular;
@@ -118,7 +118,8 @@ int main() {
 		Shader lightShader("3.3.shader.vert", "3.3.lightShader.frag");
 
 		// Material
-		glm::vec3 light_ambient(.2f, .2f, .2f);
+		glm::vec3 light_direction(2.5f, -2.f, 2.5f);
+		glm::vec3 light_ambient(.05f, .05f, .05f);
 		glm::vec3 light_diffuse(.5f, .5f, .5f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
 
@@ -127,8 +128,9 @@ int main() {
 
 		/*----------RENDER LOOP------------*/ 
 		camera.front = glm::vec3(-.65f, -.4f, -.65f);
+		float directionLight_pos = glm::pi<float>();	// gui
 		camera.Lock();
-		float light_lock = false;
+		float light_lock = true;
 
 		while (!glfwWindowShouldClose(window)) {
 			//timing
@@ -150,14 +152,8 @@ int main() {
 			}
 			model_light = glm::translate(model_light, lightPos);
 			model_light = glm::scale(model_light, glm::vec3(.2f));
-			glm::mat4 model_obj = glm::mat4(1.f);
-			model_obj = glm::translate(model_obj, objPos);
-			model_obj = glm::scale(model_obj, glm::vec3(.6f));
-			//model_obj = glm::rotate(model_obj, (float)curTime, glm::vec3(0.f, 0.f, 1.f));
 			glm::mat4 projection = glm::mat4(1.f);
 			projection = glm::perspective(glm::radians(45.f), (float)SCR_WIDTH / SCR_HEIGHT, .1f, 100.f);
-			glm::mat4 nrmMat = glm::mat4(1.f);
-			nrmMat = glm::transpose(glm::inverse(model_obj));
 			glm::mat4 view = camera.getViewMatrix(); // view
 
 			// imgui
@@ -166,8 +162,8 @@ int main() {
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::Begin("Menu");
-				glm::vec3* input_value[] = { &lightPos, &light_ambient, &light_diffuse, &light_specular };
-				const char* input_value_name[] = { "light.position", "light.ambient", "light.diffuse", "light.specular",};
+				glm::vec3* input_value[] = { &light_direction, &light_ambient, &light_diffuse, &light_specular };
+				const char* input_value_name[] = { "light.direction", "light.ambient", "light.diffuse", "light.specular",};
 				float vec3f[3];			
 				for (int i = 0; i < 4; i++) {
 					vec3f[0] = input_value[i]->x, vec3f[1] = input_value[i]->y, vec3f[2] = input_value[i]->z;
@@ -175,7 +171,9 @@ int main() {
 					input_value[i]->x = vec3f[0], input_value[i]->y = vec3f[1], input_value[i]->z = vec3f[2];
 					ImGui::Separator();
 				}
-				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 256.f);
+				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 128.f);
+				ImGui::Separator();
+				ImGui::SliderFloat("direction.Position", &directionLight_pos, 0.f, 2 * glm::pi<float>());
 				ImGui::Separator();
 				ImGui::Text("camera.position: %.2f %.2f %.2f", camera.position.x, camera.position.y, camera.position.z);
 				ImGui::Separator();
@@ -197,12 +195,11 @@ int main() {
 
 			// uniform
 			shader.use();
-			shader.setMat4f("model", 1, glm::value_ptr(model_obj));
 			shader.setMat4f("projection", 1, glm::value_ptr(projection));
-			shader.setMat4f("nrmMat", 1, glm::value_ptr(nrmMat));
 			shader.setMat4f("view", 1, glm::value_ptr(view));
 			shader.setVec3f("viewPos", camera.position);
-			shader.setVec3f("light.position", lightPos);
+			// shader.setVec3f("light.position", lightPos);
+			shader.setVec3f("light.direction", light_direction.x * sin(directionLight_pos), light_direction.y, light_direction.z * cos(directionLight_pos));
 			shader.setVec3f("light.ambient", light_ambient);
 			shader.setVec3f("light.diffuse", light_diffuse);
 			shader.setVec3f("light.specular", light_specular);
@@ -221,7 +218,18 @@ int main() {
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture_specular);
 			glBindVertexArray(VAO);
-			glDrawArrays(GL_TRIANGLES, 0, 36);
+
+			// cube party
+			for (int i = 0; i < 10; i++) {
+				glm::mat4 model_obj = glm::mat4(1.f);
+				model_obj = glm::translate(model_obj, cubePositions[i]);
+				model_obj = glm::rotate(model_obj, glm::radians(i * 20.f), glm::vec3(1.f));
+				shader.setMat4f("model", 1, glm::value_ptr(model_obj));
+				glm::mat4 nrmMat = glm::mat4(1.f);
+				nrmMat = glm::transpose(glm::inverse(model_obj));
+				shader.setMat4f("nrmMat", 1, glm::value_ptr(nrmMat));
+				glDrawArrays(GL_TRIANGLES, 0, 36);
+			}
 
 			lightShader.use();
 			glBindVertexArray(lightVAO);
