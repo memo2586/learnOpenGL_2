@@ -123,6 +123,9 @@ int main() {
 		glm::vec3 light_diffuse(.5f, .5f, .5f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
 		glm::vec3 light_direction(0.f, -1.f, 0.f);
+		float dirLight_phi = glm::pi<float>();
+		float linear = 0.09f;
+		float quadratic = 0.032f;
 		float innerCone_phi = 12.5f;
 		float outerCone_phi = 17.5f;
 		float material_shininess = 50.f;
@@ -145,14 +148,6 @@ int main() {
 			prossessInput(window);
 
 			// transform
-			glm::mat4 model_light = glm::mat4(1.f);
-			if(!light_lock){
-				lightPos.x = sin(curTime) * 8.f;
-				lightPos.y = cos(curTime) * 8.f;
-				lightPos.z = sin(curTime) * 8.f;
-			}
-			model_light = glm::translate(model_light, lightPos);
-			model_light = glm::scale(model_light, glm::vec3(.2f));
 			glm::mat4 projection = glm::mat4(1.f);
 			projection = glm::perspective(glm::radians(45.f), (float)SCR_WIDTH / SCR_HEIGHT, .1f, 100.f);
 			glm::mat4 view = camera.getViewMatrix(); // view
@@ -163,16 +158,22 @@ int main() {
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::Begin("Menu");
-				glm::vec3* input_value[] = { &lightPos, &light_direction, &light_ambient, &light_diffuse, &light_specular };
-				const char* input_value_name[] = { "light.position", "light_direction", "light.ambient", "light.diffuse", "light.specular",};
+				glm::vec3* input_value[] = { &light_ambient, &light_diffuse, &light_specular };
+				const char* input_value_name[] = { "light.ambient", "light.diffuse", "light.specular",};
 				float vec3f[3];
-				for (int i = 0; i < 5; i++) {
+				for (int i = 0; i < 3; i++) {
 					vec3f[0] = input_value[i]->x, vec3f[1] = input_value[i]->y, vec3f[2] = input_value[i]->z;
 					ImGui::InputFloat3(input_value_name[i], vec3f);
 					input_value[i]->x = vec3f[0], input_value[i]->y = vec3f[1], input_value[i]->z = vec3f[2];
 					ImGui::Separator();
 				}
+				ImGui::SliderFloat("dirLight_pos", &dirLight_phi, 0.f, 2 * glm::pi<float>());
+				ImGui::Separator();
 				ImGui::SliderFloat("material_shininess", &material_shininess, 1.f, 128.f);
+				ImGui::Separator();
+				ImGui::SliderFloat("pointLight.linear", &linear, 0.f, 1.f);
+				ImGui::Separator();
+				ImGui::SliderFloat("pointLight.quadratic", &quadratic, 0.f, 1.f);
 				ImGui::Separator();
 				ImGui::SliderFloat("light.innerCone_phi", &innerCone_phi, 0.f, 90.f);
 				ImGui::Separator();
@@ -199,21 +200,34 @@ int main() {
 			shader.setMat4f("projection", 1, glm::value_ptr(projection));
 			shader.setMat4f("view", 1, glm::value_ptr(view));
 			shader.setVec3f("viewPos", camera.position);
-			shader.setVec3f("light.position", camera.position);
-			shader.setVec3f("light.ambient", light_ambient);
-			shader.setVec3f("light.diffuse", light_diffuse);
-			shader.setVec3f("light.specular", light_specular);
-			shader.setVec3f("light.direction", camera.front);
-			// 传入余弦值方便与点乘结果比较(内外光锥)
-			shader.setFloat("light.cutOff", cos(glm::radians(innerCone_phi)));
-			shader.setFloat("light.outerCutOff", cos(glm::radians(outerCone_phi)));
+			// Dirlight
+			shader.setVec3f("dirLight.direction", sin(dirLight_phi), light_direction.y, cos(dirLight_phi));
+			shader.setVec3f("dirLight.ambient", light_ambient);
+			shader.setVec3f("dirLight.diffuse", light_diffuse);
+			shader.setVec3f("dirLight.specular", light_specular);
+			// Spotlight
+			shader.setVec3f("spotLight.position", camera.position);
+			shader.setVec3f("spotLight.ambient", light_ambient);
+			shader.setVec3f("spotLight.diffuse", light_diffuse);
+			shader.setVec3f("spotLight.specular", light_specular);
+			shader.setVec3f("spotLight.direction", camera.front);
+			shader.setFloat("spotLight.cutOff", cos(glm::radians(innerCone_phi)));
+			shader.setFloat("spotLight.outerCutOff", cos(glm::radians(outerCone_phi)));
 			shader.setInt("material.diffuse", 0);
 			shader.setInt("material.specular", 1);
 			shader.setFloat("material.shininess", material_shininess);
-			lightShader.use();
-			lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
-			lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
-			lightShader.setMat4f("view", 1, glm::value_ptr(view));
+			// PointLight
+			for (int i = 0; i < 4; i++) {
+				std::string value_name = "pointLight[x].";
+				value_name[11] = i + '0';
+				shader.setVec3f((value_name + "position").c_str(), pointLightPositions[i]);
+				shader.setVec3f((value_name + "ambient").c_str(), light_ambient);
+				shader.setVec3f((value_name + "diffuse").c_str(), light_diffuse);
+				shader.setVec3f((value_name + "specular").c_str(), light_specular);
+				shader.setFloat((value_name + "constant").c_str(), 1.f);
+				shader.setFloat((value_name + "linear").c_str(), linear);
+				shader.setFloat((value_name + "quadratic").c_str(), quadratic);
+			}
 
 			// draw
 			shader.use();
@@ -235,9 +249,17 @@ int main() {
 				glDrawArrays(GL_TRIANGLES, 0, 36);
 			}
 
-			lightShader.use();
-			glBindVertexArray(lightVAO);
-			glDrawArrays(GL_TRIANGLES, 0, 36);
+			for (int i = 0; i < 4; i++) {
+				lightShader.use();
+				glm::mat4 model_light = glm::mat4(1.f);
+				model_light = glm::translate(model_light, pointLightPositions[i]);
+				model_light = glm::scale(model_light, glm::vec3(.2f));
+				lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
+				lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
+				lightShader.setMat4f("view", 1, glm::value_ptr(view));
+				glBindVertexArray(lightVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 36);
+			}
 
 			glfwSwapBuffers(window);
 			glfwPollEvents();
