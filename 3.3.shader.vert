@@ -18,9 +18,7 @@ void main(){
 	fragPos = vec3(model * vec4(vertPos, 1.f));
 
 	vec4 nrm = nrmMat * vec4(vertNormal, 1.f);
-	for(int i = 0; i < 3; i++){
-		nrm[i] = nrm[i] / nrm[3];
-	}
+
 	normal = vec3(nrm.xyz);
 	texCoord = aTexCoord;
 }
