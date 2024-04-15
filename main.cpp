@@ -81,20 +81,28 @@ int main() {
 		glEnable(GL_DEPTH_TEST);
 
 		/*----------BUFFER------------*/
-		unsigned int VAO, lightVAO, VBO;
+
+		// ball
+		int ballVertNum = 6 * 3 * 30 * 60;
+		float ballVertices[6 * 3 * 30 * 60];
+		createSphere(ballVertices);
+
+		unsigned int VAO, lightVAO, lightVBO, VBO;
 		glGenVertexArrays(1, &VAO);
 		glGenVertexArrays(1, &lightVAO);
 		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &lightVBO);
 
 		glBindVertexArray(lightVAO);	// light
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+		glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(ballVertices), ballVertices, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(0);
 
 		// obj
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
@@ -116,13 +124,18 @@ int main() {
 
 		/*----------SHADER------------*/
 		Shader shader("3.3.shader.vert", "3.3.shader.frag");
-		Shader lightShader("3.3.shader.vert", "3.3.lightShader.frag");
+		Shader lightShader("3.3.lightShader.vert", "3.3.lightShader.frag");
 
 		// Material
 		glm::vec3 light_ambient(.05f, .05f, .05f);
-		glm::vec3 light_diffuse(.5f, .5f, .5f);
+		glm::vec3 light_diffuse(.3f, .3f, .3f);
 		glm::vec3 light_specular(1.f, 1.f, 1.f);
 		glm::vec3 light_direction(0.f, -1.f, 0.f);
+		// DirLight(Sun)
+		glm::vec3 dirlight_ambient(.05f, .038f, .021f);
+		glm::vec3 dirlight_diffuse(.5f, .38f, .21f);
+		glm::vec3 dirlight_specular(1.f, .77f, .42f);
+
 		float dirLight_phi = glm::pi<float>();
 		float linear = 0.09f;
 		float quadratic = 0.032f;
@@ -138,14 +151,18 @@ int main() {
 
 		while (!glfwWindowShouldClose(window)) {
 			//timing
-			float curTime = glfwGetTime();
-			deltaTime = curTime - lastTime;
-			lastTime = curTime;
+			{
+				float curTime = glfwGetTime();
+				deltaTime = curTime - lastTime;
+				lastTime = curTime;
+			}
 
 			// clear last frame
-			glClearColor(0.f, 0.f, 0.f, 1.f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			prossessInput(window);
+			{
+				glClearColor(0.f, 0.f, 0.f, 1.f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				prossessInput(window);
+			}
 
 			// transform
 			glm::mat4 projection = glm::mat4(1.f);
@@ -183,9 +200,6 @@ int main() {
 				ImGui::Separator();
 				ImGui::Text("camera.front: %.2f %.2f %.2f", camera.front.x, camera.front.y, camera.front.z);
 				ImGui::Separator();
-				if (ImGui::Button("light.lock")) {
-					light_lock = !light_lock;
-				}
 
 				ImGui::End();
 				ImGui::Render();
@@ -196,69 +210,86 @@ int main() {
 			}
 
 			// uniform
-			shader.use();
-			shader.setMat4f("projection", 1, glm::value_ptr(projection));
-			shader.setMat4f("view", 1, glm::value_ptr(view));
-			shader.setVec3f("viewPos", camera.position);
-			// Dirlight
-			shader.setVec3f("dirLight.direction", sin(dirLight_phi), light_direction.y, cos(dirLight_phi));
-			shader.setVec3f("dirLight.ambient", light_ambient);
-			shader.setVec3f("dirLight.diffuse", light_diffuse);
-			shader.setVec3f("dirLight.specular", light_specular);
-			// Spotlight
-			shader.setVec3f("spotLight.position", camera.position);
-			shader.setVec3f("spotLight.ambient", light_ambient);
-			shader.setVec3f("spotLight.diffuse", light_diffuse);
-			shader.setVec3f("spotLight.specular", light_specular);
-			shader.setVec3f("spotLight.direction", camera.front);
-			shader.setFloat("spotLight.cutOff", cos(glm::radians(innerCone_phi)));
-			shader.setFloat("spotLight.outerCutOff", cos(glm::radians(outerCone_phi)));
-			shader.setInt("material.diffuse", 0);
-			shader.setInt("material.specular", 1);
-			shader.setFloat("material.shininess", material_shininess);
-			// PointLight
-			for (int i = 0; i < 4; i++) {
-				std::string value_name = "pointLight[x].";
-				value_name[11] = i + '0';
-				shader.setVec3f((value_name + "position").c_str(), pointLightPositions[i]);
-				shader.setVec3f((value_name + "ambient").c_str(), light_ambient);
-				shader.setVec3f((value_name + "diffuse").c_str(), light_diffuse);
-				shader.setVec3f((value_name + "specular").c_str(), light_specular);
-				shader.setFloat((value_name + "constant").c_str(), 1.f);
-				shader.setFloat((value_name + "linear").c_str(), linear);
-				shader.setFloat((value_name + "quadratic").c_str(), quadratic);
+			{
+				shader.use();
+				shader.setMat4f("projection", 1, glm::value_ptr(projection));
+				shader.setMat4f("view", 1, glm::value_ptr(view));
+				shader.setVec3f("viewPos", camera.position);
+				// Dirlight
+				shader.setVec3f("dirLight.direction", sin(dirLight_phi), light_direction.y, cos(dirLight_phi));
+				shader.setVec3f("dirLight.ambient", dirlight_ambient);
+				shader.setVec3f("dirLight.diffuse", dirlight_diffuse);
+				shader.setVec3f("dirLight.specular", dirlight_specular);
+				// Spotlight
+				shader.setVec3f("spotLight.position", camera.position);
+				shader.setVec3f("spotLight.ambient", light_ambient);
+				shader.setVec3f("spotLight.diffuse", light_diffuse);
+				shader.setVec3f("spotLight.specular", light_specular);
+				shader.setVec3f("spotLight.direction", camera.front);
+				shader.setFloat("spotLight.cutOff", cos(glm::radians(innerCone_phi)));
+				shader.setFloat("spotLight.outerCutOff", cos(glm::radians(outerCone_phi)));
+
+				shader.setInt("material.diffuse", 0);
+				shader.setInt("material.specular", 1);
+				shader.setFloat("material.shininess", material_shininess);
+				// PointLight
+				for (int i = 0; i < 4; i++) {
+					std::string value_name = "pointLight[x].";
+					value_name[11] = i + '0';
+					shader.setVec3f((value_name + "position").c_str(), pointLightPositions[i]);
+					shader.setVec3f((value_name + "ambient").c_str(), light_ambient);
+					shader.setVec3f((value_name + "diffuse").c_str(), light_diffuse);
+					shader.setVec3f((value_name + "specular").c_str(), light_specular);
+					shader.setFloat((value_name + "constant").c_str(), 1.f);
+					shader.setFloat((value_name + "linear").c_str(), linear);
+					shader.setFloat((value_name + "quadratic").c_str(), quadratic);
+				}
 			}
 
 			// draw
-			shader.use();
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture_diffuse);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, texture_specular);
-			glBindVertexArray(VAO);
+			{
+				shader.use();
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texture_diffuse);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, texture_specular);
+				glBindVertexArray(VAO);
 
-			// cube party
-			for (int i = 0; i < 10; i++) {
-				glm::mat4 model_obj = glm::mat4(1.f);
-				model_obj = glm::translate(model_obj, cubePositions[i]);
-				model_obj = glm::rotate(model_obj, glm::radians(i * 20.f), glm::vec3(1.f));
-				shader.setMat4f("model", 1, glm::value_ptr(model_obj));
-				glm::mat4 nrmMat = glm::mat4(1.f);
-				nrmMat = glm::transpose(glm::inverse(model_obj));
-				shader.setMat4f("nrmMat", 1, glm::value_ptr(nrmMat));
-				glDrawArrays(GL_TRIANGLES, 0, 36);
-			}
+				// cube party
+				for (int i = 0; i < 10; i++) {
+					glm::mat4 model_obj = glm::mat4(1.f);
+					model_obj = glm::translate(model_obj, cubePositions[i]);
+					model_obj = glm::rotate(model_obj, glm::radians(i * 20.f), glm::vec3(1.f));
+					shader.setMat4f("model", 1, glm::value_ptr(model_obj));
+					glm::mat4 nrmMat = glm::mat4(1.f);
+					nrmMat = glm::transpose(glm::inverse(model_obj));
+					shader.setMat4f("nrmMat", 1, glm::value_ptr(nrmMat));
+					glDrawArrays(GL_TRIANGLES, 0, 36);
+				}
 
-			for (int i = 0; i < 4; i++) {
-				lightShader.use();
+				// 4 * PointLight
+				for (int i = 0; i < 4; i++) {
+					lightShader.use();
+					glm::mat4 model_light = glm::mat4(1.f);
+					model_light = glm::translate(model_light, pointLightPositions[i]);
+					model_light = glm::scale(model_light, glm::vec3(.1f));
+					lightShader.setVec3f("lightColor", glm::vec3(1.f));
+					lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
+					lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
+					lightShader.setMat4f("view", 1, glm::value_ptr(view));
+					glBindVertexArray(lightVAO);
+					glDrawArrays(GL_TRIANGLES, 0, ballVertNum);
+				}
+				// DirLight
 				glm::mat4 model_light = glm::mat4(1.f);
-				model_light = glm::translate(model_light, pointLightPositions[i]);
-				model_light = glm::scale(model_light, glm::vec3(.2f));
+				model_light = glm::translate(model_light, glm::vec3(-sin(dirLight_phi) * 15.f, 20.f, -cos(dirLight_phi) * 25));
+				model_light = glm::scale(model_light, glm::vec3(4.f));
+				lightShader.setVec3f("lightColor", glm::vec3(1.f, .77f, .42f));
 				lightShader.setMat4f("model", 1, glm::value_ptr(model_light));
 				lightShader.setMat4f("projection", 1, glm::value_ptr(projection));
 				lightShader.setMat4f("view", 1, glm::value_ptr(view));
 				glBindVertexArray(lightVAO);
-				glDrawArrays(GL_TRIANGLES, 0, 36);
+				glDrawArrays(GL_TRIANGLES, 0, ballVertNum);
 			}
 
 			glfwSwapBuffers(window);

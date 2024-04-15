@@ -53,6 +53,7 @@
     <None Include="3.3.shader.vert" />
     <None Include="3.3.shader.frag" />
     <None Include="3.3.lightShader.frag" />
+    <None Include="3.3.lightShader.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sphere.h">
