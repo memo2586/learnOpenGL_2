@@ -84,7 +84,7 @@ int main() {
 
 		// ball
 		int ballVertNum = 6 * 3 * 30 * 60;
-		float ballVertices[6 * 3 * 30 * 60];
+		static float ballVertices[6 * 3 * 30 * 60];
 		createSphere(ballVertices);
 
 		unsigned int VAO, lightVAO, lightVBO, VBO;
